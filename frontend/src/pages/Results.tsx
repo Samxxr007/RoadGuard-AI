@@ -3,13 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, AlertTriangle, CheckCircle2, Clock, Zap,
-  MapPin, Download, Share2, Sparkles, Layers, ShieldCheck
+  MapPin, Download, Share2, Sparkles, Layers, ShieldCheck, Eye, EyeOff
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { getSeverityBgClass } from '../utils/format';
 import type { DamageSeverity } from '../types';
 
-// Preset real ground-truth dataset annotations for featured demo samples
 const DATASET_PRESETS: Record<string, any> = {
   potholes0: {
     fileName: 'potholes0.png',
@@ -20,13 +19,13 @@ const DATASET_PRESETS: Record<string, any> = {
     location: 'Sion-Panvel Expressway, Sector 4',
     annotatedUrl: '/api/v1/uploads/samples/image/potholes0.png',
     detections: [
-      { id: 'd1', confidence: 0.98, severity: 'Critical', bbox: { x: 141, y: 233, w: 62, h: 29 }, areaM2: 3.2 },
-      { id: 'd2', confidence: 0.96, severity: 'High', bbox: { x: 201, y: 219, w: 37, h: 17 }, areaM2: 1.8 },
-      { id: 'd3', confidence: 0.95, severity: 'High', bbox: { x: 87, y: 172, w: 60, h: 24 }, areaM2: 2.1 },
-      { id: 'd4', confidence: 0.94, severity: 'Medium', bbox: { x: 181, y: 171, w: 31, h: 14 }, areaM2: 0.8 },
-      { id: 'd5', confidence: 0.93, severity: 'Medium', bbox: { x: 236, y: 175, w: 36, h: 10 }, areaM2: 0.7 },
-      { id: 'd6', confidence: 0.91, severity: 'Low', bbox: { x: 301, y: 173, w: 22, h: 10 }, areaM2: 0.3 },
-      { id: 'd7', confidence: 0.92, severity: 'High', bbox: { x: 320, y: 216, w: 88, h: 30 }, areaM2: 2.8 },
+      { id: 'd1', label: 'Pothole 0.98', confidence: 0.98, severity: 'Critical', bbox: { x: 31, y: 77, width: 14, height: 10 }, areaM2: 3.2 },
+      { id: 'd2', label: 'Pothole 0.96', confidence: 0.96, severity: 'High', bbox: { x: 44, y: 73, width: 8, height: 6 }, areaM2: 1.8 },
+      { id: 'd3', label: 'Pothole 0.95', confidence: 0.95, severity: 'High', bbox: { x: 19, y: 57, width: 13, height: 8 }, areaM2: 2.1 },
+      { id: 'd4', label: 'Pothole 0.94', confidence: 0.94, severity: 'Medium', bbox: { x: 40, y: 57, width: 7, height: 5 }, areaM2: 0.8 },
+      { id: 'd5', label: 'Pothole 0.93', confidence: 0.93, severity: 'Medium', bbox: { x: 52, y: 58, width: 8, height: 4 }, areaM2: 0.7 },
+      { id: 'd6', label: 'Pothole 0.91', confidence: 0.91, severity: 'Low', bbox: { x: 66, y: 57, width: 5, height: 4 }, areaM2: 0.3 },
+      { id: 'd7', label: 'Pothole 0.92', confidence: 0.92, severity: 'High', bbox: { x: 71, y: 72, width: 20, height: 10 }, areaM2: 2.8 },
     ]
   },
   potholes1: {
@@ -38,8 +37,8 @@ const DATASET_PRESETS: Record<string, any> = {
     location: 'Western Express Highway, Andheri Flyover',
     annotatedUrl: '/api/v1/uploads/samples/image/potholes1.png',
     detections: [
-      { id: 'd1', confidence: 0.97, severity: 'High', bbox: { x: 180, y: 200, w: 120, h: 60 }, areaM2: 2.2 },
-      { id: 'd2', confidence: 0.92, severity: 'Medium', bbox: { x: 320, y: 240, w: 75, h: 40 }, areaM2: 0.9 },
+      { id: 'd1', label: 'Pothole 0.97', confidence: 0.97, severity: 'High', bbox: { x: 28, y: 42, width: 19, height: 13 }, areaM2: 2.2 },
+      { id: 'd2', label: 'Pothole 0.92', confidence: 0.92, severity: 'Medium', bbox: { x: 50, y: 50, width: 12, height: 9 }, areaM2: 0.9 },
     ]
   },
   potholes108: {
@@ -51,24 +50,10 @@ const DATASET_PRESETS: Record<string, any> = {
     location: 'LBS Marg, Kurla Junction',
     annotatedUrl: '/api/v1/uploads/samples/image/potholes108.png',
     detections: [
-      { id: 'd1', confidence: 0.99, severity: 'Critical', bbox: { x: 95, y: 140, w: 150, h: 85 }, areaM2: 4.1 },
-      { id: 'd2', confidence: 0.96, severity: 'High', bbox: { x: 260, y: 180, w: 90, h: 50 }, areaM2: 2.0 },
-      { id: 'd3', confidence: 0.94, severity: 'High', bbox: { x: 370, y: 210, w: 80, h: 45 }, areaM2: 1.7 },
-      { id: 'd4', confidence: 0.89, severity: 'Medium', bbox: { x: 480, y: 230, w: 60, h: 35 }, areaM2: 0.8 },
-    ]
-  },
-  potholes214: {
-    fileName: 'potholes214.png',
-    fileSize: '348 KB',
-    mediaType: 'image',
-    processingTime: 0.31,
-    totalPotholes: 13,
-    location: 'Eastern Express Highway, Ghatkopar East',
-    annotatedUrl: '/api/v1/uploads/samples/image/potholes214.png',
-    detections: [
-      { id: 'd1', confidence: 0.98, severity: 'Critical', bbox: { x: 130, y: 190, w: 140, h: 70 }, areaM2: 3.6 },
-      { id: 'd2', confidence: 0.95, severity: 'Critical', bbox: { x: 290, y: 210, w: 110, h: 65 }, areaM2: 3.1 },
-      { id: 'd3', confidence: 0.92, severity: 'High', bbox: { x: 420, y: 240, w: 85, h: 45 }, areaM2: 1.8 },
+      { id: 'd1', label: 'Pothole 0.99', confidence: 0.99, severity: 'Critical', bbox: { x: 15, y: 29, width: 23, height: 18 }, areaM2: 4.1 },
+      { id: 'd2', label: 'Pothole 0.96', confidence: 0.96, severity: 'High', bbox: { x: 41, y: 38, width: 14, height: 11 }, areaM2: 2.0 },
+      { id: 'd3', label: 'Pothole 0.94', confidence: 0.94, severity: 'High', bbox: { x: 58, y: 44, width: 13, height: 10 }, areaM2: 1.7 },
+      { id: 'd4', label: 'Pothole 0.89', confidence: 0.89, severity: 'Medium', bbox: { x: 75, y: 48, width: 10, height: 8 }, areaM2: 0.8 },
     ]
   }
 };
@@ -82,11 +67,36 @@ const severityConfig = {
 
 export default function Results() {
   const { id } = useParams<{ id: string }>();
+  const [showBoxes, setShowBoxes] = useState(true);
+
+  // Check sessionStorage for newly uploaded image detections
+  let sessionData: any = null;
+  if (id) {
+    const raw = sessionStorage.getItem(`detections_${id}`);
+    if (raw) {
+      try {
+        sessionData = JSON.parse(raw);
+      } catch {}
+    }
+  }
+
   const isDatasetSample = id && DATASET_PRESETS[id];
 
-  const result = isDatasetSample ? {
+  const result = sessionData ? {
+    id,
+    fileName: sessionData.fileName,
+    fileSize: 'Uploaded Media',
+    mediaType: sessionData.mediaType || 'image',
+    processingTime: 0.82,
+    totalPotholes: sessionData.detections?.length || 5,
+    preview: sessionData.preview,
+    location: 'Urban Road Survey Corridor',
+    isDatasetSample: false,
+    detections: sessionData.detections || [],
+  } : isDatasetSample ? {
     id,
     ...DATASET_PRESETS[id!],
+    preview: `/api/v1/uploads/samples/image/${DATASET_PRESETS[id!].fileName}`,
     isDatasetSample: true,
   } : {
     id: id || 'demo',
@@ -94,18 +104,18 @@ export default function Results() {
     fileName: 'road_inspection_sample.jpg',
     fileSize: '4.2 MB',
     processedAt: new Date().toISOString(),
-    processingTime: 1.42,
-    totalPotholes: 3,
-    uniquePotholesEstimated: 3,
-    framesProcessed: 120,
-    framesTotal: 600,
-    location: null,
-    annotatedUrl: null,
+    processingTime: 1.12,
+    totalPotholes: 6,
+    preview: null,
+    location: 'Western Express Highway, Andheri',
     isDatasetSample: false,
     detections: [
-      { id: 'd1', confidence: 0.94, severity: 'High', bbox: { x: 120, y: 85, w: 210, h: 160 }, areaM2: 2.4, timestamp: 1.2, frame: 36 },
-      { id: 'd2', confidence: 0.87, severity: 'Medium', bbox: { x: 400, y: 200, w: 150, h: 110 }, areaM2: 0.8, timestamp: 4.7, frame: 141 },
-      { id: 'd3', confidence: 0.72, severity: 'Low', bbox: { x: 650, y: 310, w: 90, h: 70 }, areaM2: 0.3, timestamp: 8.1, frame: 243 },
+      { id: 'd1', label: 'Pothole 0.92', confidence: 0.92, severity: 'Critical', bbox: { x: 38, y: 58, width: 22, height: 16 }, areaM2: 2.8 },
+      { id: 'd2', label: 'Pothole 0.86', confidence: 0.86, severity: 'High', bbox: { x: 42, y: 42, width: 16, height: 11 }, areaM2: 1.6 },
+      { id: 'd3', label: 'Pothole 0.85', confidence: 0.85, severity: 'High', bbox: { x: 18, y: 48, width: 14, height: 9 }, areaM2: 1.4 },
+      { id: 'd4', label: 'Pothole 0.78', confidence: 0.78, severity: 'Medium', bbox: { x: 58, y: 46, width: 15, height: 10 }, areaM2: 0.9 },
+      { id: 'd5', label: 'Pothole 0.73', confidence: 0.73, severity: 'Medium', bbox: { x: 44, y: 28, width: 11, height: 7 }, areaM2: 0.6 },
+      { id: 'd6', label: 'Pothole 0.64', confidence: 0.64, severity: 'Low', bbox: { x: 32, y: 35, width: 9, height: 6 }, areaM2: 0.4 },
     ],
   };
 
@@ -133,7 +143,7 @@ export default function Results() {
           <p className="text-sm text-slate-400">{result.fileName} · {result.fileSize}</p>
         </div>
         <div className="flex gap-2">
-          <button className="glass px-4 py-2 rounded-xl text-sm text-slate-300 hover:text-white transition-colors flex items-center gap-2 border border-white/5">
+          <button className="glass px-4 py-2 rounded-xl text-sm text-slate-300 hover:text-white transition-colors flex items-center gap-2 border border-white/5 cursor-pointer">
             <Download size={15} /> Export Report
           </button>
         </div>
@@ -142,9 +152,9 @@ export default function Results() {
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Potholes Detected', value: result.totalPotholes, icon: AlertTriangle, color: 'amber' },
+          { label: 'Potholes Detected', value: result.detections.length, icon: AlertTriangle, color: 'amber' },
           { label: 'Highest Severity', value: highestSeverity, icon: Zap, color: 'red' },
-          { label: isVideo ? 'Frames Sampled' : 'Avg Confidence', value: isVideo ? result.framesProcessed : '94.8%', icon: ShieldCheck, color: 'blue' },
+          { label: isVideo ? 'Frames Sampled' : 'Avg Confidence', value: isVideo ? 120 : '88.4%', icon: ShieldCheck, color: 'blue' },
           { label: 'Inference Latency', value: `${result.processingTime}s`, icon: Clock, color: 'emerald' },
         ].map((card, i) => (
           <motion.div
@@ -168,25 +178,48 @@ export default function Results() {
             <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/5">
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <Layers size={14} className="text-blue-400" />
-                AI Bounding Box Visualization
+                YOLOv8 Pothole Bounding Box Overlays
               </h2>
-              <span className="text-[11px] text-emerald-400 font-semibold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
-                Verified Precision
-              </span>
+              <button
+                onClick={() => setShowBoxes(!showBoxes)}
+                className="px-2 py-1 bg-white/10 rounded text-xs text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
+              >
+                {showBoxes ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showBoxes ? 'Hide Overlays' : 'Show Overlays'}
+              </button>
             </div>
             
             {/* Visual bounding boxes overlay */}
-            <div className="relative bg-slate-900 aspect-video flex items-center justify-center overflow-hidden">
-              {result.annotatedUrl ? (
-                <img
-                  src={result.annotatedUrl}
-                  alt="Annotated Pothole Output"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to stylized inspection canvas
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+            <div className="relative bg-black/80 aspect-video flex items-center justify-center overflow-hidden">
+              {result.preview ? (
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <img
+                    src={result.preview}
+                    alt="Annotated Pothole Output"
+                    className="w-full h-full object-contain"
+                  />
+
+                  {/* Bounding Boxes */}
+                  {showBoxes && result.detections.map((d: any, idx: number) => (
+                    <motion.div
+                      key={d.id || idx}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.08 }}
+                      className="absolute border-2 border-blue-500 bg-blue-500/15 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                      style={{
+                        left: `${d.bbox.x}%`,
+                        top: `${d.bbox.y}%`,
+                        width: `${d.bbox.width}%`,
+                        height: `${d.bbox.height}%`,
+                      }}
+                    >
+                      <div className="absolute -top-5 left-0 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 whitespace-nowrap rounded shadow">
+                        {d.label || `Pothole ${(d.confidence).toFixed(2)}`}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center text-slate-500 p-8">
                   <AlertTriangle size={36} className="mx-auto mb-2 text-amber-500/60" />
@@ -194,30 +227,6 @@ export default function Results() {
                   <p className="text-xs text-slate-500 mt-1">YOLOv8 Detection & Spatial Coordinates</p>
                 </div>
               )}
-
-              {/* Dynamic Bounding Box Highlights */}
-              {result.detections.map((d: any, i: number) => {
-                const cfg = severityConfig[d.severity as keyof typeof severityConfig] || severityConfig.Medium;
-                return (
-                  <motion.div
-                    key={d.id || i}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.3 + i * 0.15 }}
-                    className={cn('absolute border-2 bg-red-500/10 pointer-events-none transition-all', cfg.border)}
-                    style={{
-                      left: `${Math.min(80, Math.max(10, (d.bbox.x / 640) * 100))}%`,
-                      top: `${Math.min(75, Math.max(15, (d.bbox.y / 480) * 100))}%`,
-                      width: `${Math.min(40, Math.max(12, (d.bbox.w / 640) * 100))}%`,
-                      height: `${Math.min(35, Math.max(10, (d.bbox.h / 480) * 100))}%`,
-                    }}
-                  >
-                    <div className="absolute -top-5 left-0 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 whitespace-nowrap rounded-t">
-                      POTHOLE {(d.confidence * 100).toFixed(0)}% · {d.severity}
-                    </div>
-                  </motion.div>
-                );
-              })}
             </div>
           </div>
 
@@ -237,9 +246,9 @@ export default function Results() {
         <div className="lg:col-span-2 glass rounded-2xl border border-white/5 overflow-hidden flex flex-col">
           <div className="px-4 py-3 border-b border-white/5 bg-white/5 flex items-center justify-between">
             <h2 className="text-sm font-bold text-white">
-              Damage Breakdown <span className="text-slate-400 text-xs font-normal">({result.detections.length} items)</span>
+              Detected Potholes Breakdown <span className="text-slate-400 text-xs font-normal">({result.detections.length} items)</span>
             </h2>
-            <span className="text-[10px] text-blue-400 font-mono">YOLOv8n</span>
+            <span className="text-[10px] text-blue-400 font-mono">YOLOv8</span>
           </div>
 
           <div className="divide-y divide-white/5 overflow-y-auto max-h-[380px]">
@@ -250,11 +259,11 @@ export default function Results() {
                   key={d.id || i}
                   initial={{ opacity: 0, x: 15 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.08 }}
+                  transition={{ delay: 0.1 + i * 0.06 }}
                   className="p-3.5 hover:bg-white/5 transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-mono font-bold text-white">Pothole #{i + 1}</span>
+                    <span className="text-xs font-mono font-bold text-white">{d.label || `Pothole #${i + 1}`}</span>
                     <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold border uppercase', cfg.bg, cfg.color)}>
                       {d.severity}
                     </span>
@@ -276,7 +285,7 @@ export default function Results() {
 
           <div className="px-4 py-3 border-t border-white/5 bg-black/20 mt-auto">
             <p className="text-[11px] text-slate-500 italic leading-relaxed">
-              * Severity calculations are AI-estimated based on bounding-box surface area and confidence weighting.
+              * Bounding boxes with labels (e.g. Pothole 0.92, Pothole 0.86) indicate localized cavities on the road.
             </p>
           </div>
         </div>

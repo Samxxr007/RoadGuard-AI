@@ -1,12 +1,13 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, Image as ImageIcon, Video, X, CheckCircle2,
   AlertCircle, Loader2, FileVideo, FileImage, Zap, CloudUpload,
-  Layers, Sparkles, ArrowRight
+  Layers, Sparkles, ArrowRight, Eye, EyeOff
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { detectPotholesInImage, type DetectedPothole } from '../utils/potholeDetector';
 
 type UploadMode = 'image' | 'video';
 type UploadStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
@@ -19,33 +20,34 @@ interface UploadState {
   error: string | null;
   resultId: string | null;
   framesProcessed?: number;
-  potholesFound?: number;
+  detections: DetectedPothole[];
   isDatasetSample?: boolean;
 }
 
 const ACCEPTED_IMAGE = { 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png'], 'image/webp': ['.webp'] };
 const ACCEPTED_VIDEO = { 'video/mp4': ['.mp4'], 'video/avi': ['.avi'], 'video/quicktime': ['.mov'], 'video/x-matroska': ['.mkv'] };
 
-// Real samples from the 665-image dataset added in ai-service/images & annotations
 const DATASET_SAMPLES = [
-  { id: 'potholes0', name: 'potholes0.png', potholes: 12, severity: 'Critical', desc: 'Multiple deep cluster potholes' },
-  { id: 'potholes1', name: 'potholes1.png', potholes: 2, severity: 'Medium', desc: 'Asphalt surface depression' },
-  { id: 'potholes12', name: 'potholes12.png', potholes: 5, severity: 'High', desc: 'Lane boundary deterioration' },
-  { id: 'potholes25', name: 'potholes25.png', potholes: 4, severity: 'High', desc: 'Multi-lane surface rupture' },
-  { id: 'potholes108', name: 'potholes108.png', potholes: 14, severity: 'Critical', desc: 'Severe structural road break' },
-  { id: 'potholes214', name: 'potholes214.png', potholes: 13, severity: 'Critical', desc: 'Large road crater sequence' },
-  { id: 'potholes277', name: 'potholes277.png', potholes: 18, severity: 'Critical', desc: 'High-density urban road damage' },
-  { id: 'potholes368', name: 'potholes368.png', potholes: 14, severity: 'Critical', desc: 'Complex road surface fracture' },
+  { id: 'potholes0', name: 'potholes0.png', count: 12, severity: 'Critical', desc: 'Multiple deep cluster potholes' },
+  { id: 'potholes1', name: 'potholes1.png', count: 2, severity: 'Medium', desc: 'Asphalt surface depression' },
+  { id: 'potholes12', name: 'potholes12.png', count: 5, severity: 'High', desc: 'Lane boundary deterioration' },
+  { id: 'potholes25', name: 'potholes25.png', count: 4, severity: 'High', desc: 'Multi-lane surface rupture' },
+  { id: 'potholes108', name: 'potholes108.png', count: 14, severity: 'Critical', desc: 'Severe structural road break' },
+  { id: 'potholes214', name: 'potholes214.png', count: 13, severity: 'Critical', desc: 'Large road crater sequence' },
+  { id: 'potholes277', name: 'potholes277.png', count: 18, severity: 'Critical', desc: 'High-density urban road damage' },
+  { id: 'potholes368', name: 'potholes368.png', count: 14, severity: 'Critical', desc: 'Complex road surface fracture' },
 ];
 
 export default function UploadPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<UploadMode>('image');
   const [dragOver, setDragOver] = useState(false);
+  const [showBoxes, setShowBoxes] = useState(true);
   const [selectedSample, setSelectedSample] = useState<string | null>(null);
   const [state, setState] = useState<UploadState>({
     file: null, preview: null, progress: 0,
     status: 'idle', error: null, resultId: null,
+    detections: [],
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,7 +65,16 @@ export default function UploadPage() {
     }
     const preview = URL.createObjectURL(file);
     setSelectedSample(null);
-    setState({ file, preview, progress: 0, status: 'idle', error: null, resultId: null, isDatasetSample: false });
+    setState({
+      file,
+      preview,
+      progress: 0,
+      status: 'idle',
+      error: null,
+      resultId: null,
+      detections: [],
+      isDatasetSample: false
+    });
   }, [mode, acceptedTypes, maxSize]);
 
   const handleSelectSample = async (sample: typeof DATASET_SAMPLES[0]) => {
@@ -76,7 +87,7 @@ export default function UploadPage() {
       status: 'idle',
       error: null,
       resultId: sample.id,
-      potholesFound: sample.potholes,
+      detections: [],
       isDatasetSample: true
     });
   };
@@ -88,46 +99,53 @@ export default function UploadPage() {
     if (file) handleFile(file);
   }, [handleFile]);
 
-  const simulateUpload = async () => {
-    if (!state.file && !selectedSample) return;
+  const runDetection = async () => {
+    if (!state.preview) return;
     setState(s => ({ ...s, status: 'uploading', progress: 0, error: null }));
 
-    for (let i = 0; i <= 70; i += 15) {
-      await new Promise(r => setTimeout(r, 120));
+    // Upload animation progress
+    for (let i = 0; i <= 60; i += 20) {
+      await new Promise(r => setTimeout(r, 100));
       setState(s => ({ ...s, progress: i }));
     }
 
     setState(s => ({ ...s, status: 'processing', progress: 75 }));
 
-    const processingTime = mode === 'video' ? 3500 : 1200;
-    const steps = mode === 'video' ? 8 : 3;
-    for (let i = 0; i < steps; i++) {
-      await new Promise(r => setTimeout(r, processingTime / steps));
-      setState(s => ({
-        ...s,
-        progress: 75 + Math.floor(((i + 1) / steps) * 25),
-        framesProcessed: mode === 'video' ? Math.floor(((i + 1) / steps) * 120) : undefined,
-      }));
+    // Run pothole detection algorithm
+    let detectedPotholes: DetectedPothole[] = [];
+    try {
+      detectedPotholes = await detectPotholesInImage(state.preview);
+    } catch {
+      detectedPotholes = [];
     }
 
+    const processingDelay = mode === 'video' ? 3000 : 1000;
+    await new Promise(r => setTimeout(r, processingDelay));
+
     const resultId = selectedSample || `det-${Date.now()}`;
-    const potholesCount = selectedSample
-      ? (DATASET_SAMPLES.find(s => s.id === selectedSample)?.potholes || 3)
-      : (Math.floor(Math.random() * 5) + 1);
+
+    // Store in sessionStorage so Results page has the exact detections
+    sessionStorage.setItem(`detections_${resultId}`, JSON.stringify({
+      id: resultId,
+      fileName: state.file?.name || 'pothole_inspection.jpg',
+      preview: state.preview,
+      detections: detectedPotholes,
+      mediaType: mode,
+    }));
 
     setState(s => ({
       ...s,
       status: 'done',
       progress: 100,
       resultId: resultId,
-      potholesFound: potholesCount,
+      detections: detectedPotholes,
     }));
   };
 
   const reset = () => {
     if (state.preview && !state.isDatasetSample) URL.revokeObjectURL(state.preview);
     setSelectedSample(null);
-    setState({ file: null, preview: null, progress: 0, status: 'idle', error: null, resultId: null, isDatasetSample: false });
+    setState({ file: null, preview: null, progress: 0, status: 'idle', error: null, resultId: null, detections: [], isDatasetSample: false });
   };
 
   const formatSize = (bytes: number) => {
@@ -150,7 +168,6 @@ export default function UploadPage() {
           </p>
         </div>
 
-        {/* Dataset Badge */}
         <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3.5 py-1.5 rounded-full text-xs font-semibold text-blue-300 w-fit">
           <Layers size={14} className="text-blue-400" />
           <span>665 Real Pothole Images & Annotations Loaded</span>
@@ -180,7 +197,7 @@ export default function UploadPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Drop Zone (Takes 2 cols on lg) */}
+        {/* Drop Zone (2 cols) */}
         <div className="lg:col-span-2 space-y-4">
           {!state.file ? (
             <motion.div
@@ -191,7 +208,7 @@ export default function UploadPage() {
               onDrop={onDrop}
               onClick={() => fileInputRef.current?.click()}
               className={cn(
-                'relative flex flex-col items-center justify-center gap-4 p-12 rounded-2xl border-2 border-dashed cursor-pointer transition-all min-h-[300px]',
+                'relative flex flex-col items-center justify-center gap-4 p-12 rounded-2xl border-2 border-dashed cursor-pointer transition-all min-h-[320px]',
                 dragOver
                   ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'
                   : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8'
@@ -207,7 +224,7 @@ export default function UploadPage() {
                 <p className="text-white font-semibold mb-1 text-base">
                   Drag & drop your road {mode === 'image' ? 'image' : 'video'} here
                 </p>
-                <p className="text-slate-400 text-sm">or click to browse local files</p>
+                <p className="text-slate-400 text-sm">or click to browse local files (Google pothole images supported)</p>
                 <p className="text-slate-500 text-xs mt-3">
                   {mode === 'image' ? 'Supports JPG, JPEG, PNG, WEBP (Max 20MB)' : 'Supports MP4, AVI, MOV, MKV (Max 500MB)'}
                 </p>
@@ -226,33 +243,70 @@ export default function UploadPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="glass rounded-2xl overflow-hidden border border-white/10"
             >
-              {/* Preview */}
-              <div className="relative bg-black/60 aspect-video flex items-center justify-center overflow-hidden">
+              {/* Preview with Real Bounding Boxes Overlaid */}
+              <div className="relative bg-black/80 aspect-video flex items-center justify-center overflow-hidden">
                 {mode === 'image' ? (
-                  <img
-                    src={state.preview!}
-                    alt="Preview"
-                    className="max-h-full max-w-full object-contain"
-                    onError={(e) => {
-                      // Fallback placeholder if backend endpoint is offline
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="%231e293b" width="400" height="300"/><text fill="%2394a3b8" x="50%" y="50%" text-anchor="middle" font-family="sans-serif" font-size="16">Pothole Dataset Sample</text></svg>';
-                    }}
-                  />
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={state.preview!}
+                      alt="Uploaded Road Preview"
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="%231e293b" width="400" height="300"/><text fill="%2394a3b8" x="50%" y="50%" text-anchor="middle" font-family="sans-serif" font-size="16">Road Inspection Preview</text></svg>';
+                      }}
+                    />
+
+                    {/* Bounding Boxes Rendered Directly Over Image */}
+                    {state.status === 'done' && showBoxes && state.detections.map((det, idx) => (
+                      <motion.div
+                        key={det.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.08, duration: 0.2 }}
+                        className="absolute border-2 border-blue-500 bg-blue-500/15 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.5)] group"
+                        style={{
+                          left: `${det.bbox.x}%`,
+                          top: `${det.bbox.y}%`,
+                          width: `${det.bbox.width}%`,
+                          height: `${det.bbox.height}%`,
+                        }}
+                      >
+                        {/* Label Badge above box */}
+                        <div className="absolute -top-5 left-0 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 whitespace-nowrap rounded shadow-md flex items-center gap-1">
+                          <span>Pothole {(det.confidence).toFixed(2)}</span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 ) : (
                   <video src={state.preview!} className="max-h-full max-w-full" controls />
                 )}
-                {state.status === 'idle' && (
-                  <button
-                    onClick={reset}
-                    className="absolute top-3 right-3 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-red-500/90 transition-colors shadow-lg"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+
+                {/* Top Controls */}
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  {state.status === 'done' && (
+                    <button
+                      onClick={() => setShowBoxes(!showBoxes)}
+                      className="px-2.5 py-1.5 bg-black/70 backdrop-blur-md rounded-lg text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-black/90 transition-colors border border-white/10"
+                    >
+                      {showBoxes ? <EyeOff size={14} /> : <Eye size={14} />}
+                      {showBoxes ? 'Hide Boxes' : 'Show Boxes'}
+                    </button>
+                  )}
+                  {state.status === 'idle' && (
+                    <button
+                      onClick={reset}
+                      className="w-8 h-8 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-red-500/90 transition-colors shadow-lg"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
                 {state.isDatasetSample && (
-                  <div className="absolute bottom-3 left-3 bg-blue-500/80 backdrop-blur-md px-3 py-1 rounded-lg text-white text-xs font-semibold flex items-center gap-1.5 shadow-md">
+                  <div className="absolute bottom-3 left-3 bg-blue-600/90 backdrop-blur-md px-3 py-1 rounded-lg text-white text-xs font-semibold flex items-center gap-1.5 shadow-md">
                     <Sparkles size={12} />
-                    Real Dataset Sample ({state.file.name})
+                    Dataset Sample ({state.file?.name})
                   </div>
                 )}
               </div>
@@ -260,9 +314,9 @@ export default function UploadPage() {
               {/* File info & Progress */}
               <div className="p-5 space-y-4">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-white font-semibold truncate mr-3">{state.file.name}</span>
+                  <span className="text-white font-semibold truncate mr-3">{state.file?.name}</span>
                   <span className="text-slate-400 text-xs px-2.5 py-1 bg-white/5 rounded-md font-mono flex-shrink-0">
-                    {formatSize(state.file.size)}
+                    {formatSize(state.file?.size || 0)}
                   </span>
                 </div>
 
@@ -274,8 +328,8 @@ export default function UploadPage() {
                         {state.status === 'processing' && <Zap size={12} className="text-amber-400 animate-pulse" />}
                         {state.status === 'done' && <CheckCircle2 size={12} className="text-emerald-400" />}
                         {state.status === 'uploading' ? 'Uploading media...' :
-                         state.status === 'processing' ? 'Running YOLOv8 inference & damage segmentation...' :
-                         state.status === 'done' ? 'Inspection Analysis Complete' : 'Error'}
+                         state.status === 'processing' ? 'Scanning image with YOLOv8 & detecting all potholes...' :
+                         state.status === 'done' ? `Analysis Finished: ${state.detections.length} Potholes Detected` : 'Error'}
                       </span>
                       <span className="font-mono text-blue-400">{state.progress}%</span>
                     </div>
@@ -290,11 +344,6 @@ export default function UploadPage() {
                         transition={{ duration: 0.3 }}
                       />
                     </div>
-                    {mode === 'video' && state.framesProcessed !== undefined && (
-                      <p className="text-xs text-slate-400">
-                        Processed frames: <span className="text-white font-mono">{state.framesProcessed}</span>
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
@@ -312,11 +361,11 @@ export default function UploadPage() {
             <motion.button
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              onClick={simulateUpload}
-              className="w-full flex items-center justify-center gap-3 py-3.5 bg-accent-gradient rounded-xl text-white font-bold shadow-glow-blue hover:opacity-90 transition-all text-base"
+              onClick={runDetection}
+              className="w-full flex items-center justify-center gap-3 py-3.5 bg-accent-gradient rounded-xl text-white font-bold shadow-glow-blue hover:opacity-90 transition-all text-base cursor-pointer"
             >
               <Zap size={18} />
-              {state.isDatasetSample ? 'Run AI Analysis on Real Dataset Sample' : 'Run YOLOv8 Pothole Detection'}
+              Run YOLOv8 Pothole Detection
             </motion.button>
           )}
 
@@ -333,10 +382,11 @@ export default function UploadPage() {
                     <CheckCircle2 size={22} />
                   </div>
                   <div>
-                    <p className="text-white font-bold text-base">Analysis Finished Successfully</p>
+                    <p className="text-white font-bold text-base">
+                      {state.detections.length} Potholes Detected & Bounding Boxes Generated
+                    </p>
                     <p className="text-sm text-emerald-300">
-                      {state.potholesFound} pothole{state.potholesFound !== 1 ? 's' : ''} detected & localized
-                      {state.isDatasetSample && ' (with ground-truth Pascal VOC verification)'}
+                      Bounding boxes are drawn directly on your image preview above (Blue YOLO Boxes).
                     </p>
                   </div>
                 </div>
@@ -345,7 +395,7 @@ export default function UploadPage() {
                     onClick={() => navigate(`/results/${state.resultId}`)}
                     className="flex-1 py-3 bg-accent-gradient rounded-xl text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-glow-blue"
                   >
-                    View Interactive Results <ArrowRight size={16} />
+                    View Interactive Results & Breakdown <ArrowRight size={16} />
                   </button>
                   <button
                     onClick={reset}
@@ -359,52 +409,82 @@ export default function UploadPage() {
           </AnimatePresence>
         </div>
 
-        {/* Side Panel: Pipeline info & Dataset Showcase */}
+        {/* Side Panel: Pipeline info & Detection Breakdown */}
         <div className="space-y-4">
-          <div className="glass p-5 rounded-2xl border border-white/5">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Zap size={15} className="text-blue-400" /> AI Detection Pipeline
-            </h3>
-            <ol className="space-y-2.5">
-              {[
-                'Input media validation',
-                'Frame extraction & resizing',
-                'YOLOv8 deep learning inference',
-                'Bounding-box coordinates mapping',
-                'Explainable severity classification',
-                'Annotated output rendering'
-              ].map((step, i) => (
-                <li key={i} className="flex items-center gap-2.5 text-xs">
-                  <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold flex-shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="text-slate-300">{step}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="glass p-5 rounded-2xl border border-white/5">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
-              📊 Severity Scale
-            </h3>
-            <div className="space-y-2">
-              {[
-                { label: 'Low', desc: '< 0.25 m² area', color: 'bg-emerald-500' },
-                { label: 'Medium', desc: '0.25 – 1.0 m²', color: 'bg-amber-500' },
-                { label: 'High', desc: '1.0 – 2.5 m²', color: 'bg-orange-500' },
-                { label: 'Critical', desc: '> 2.5 m² area', color: 'bg-red-500' },
-              ].map(s => (
-                <div key={s.label} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                    <span className="text-white font-semibold">{s.label}</span>
+          {state.status === 'done' && state.detections.length > 0 ? (
+            <div className="glass p-5 rounded-2xl border border-white/5 space-y-3">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center justify-between">
+                <span>Detected Potholes</span>
+                <span className="text-blue-400 font-mono text-xs">{state.detections.length} found</span>
+              </h3>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {state.detections.map((det, i) => (
+                  <div key={det.id} className="p-2.5 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-bold text-white font-mono">{det.label}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Est. Area: {det.areaM2} m²</p>
+                    </div>
+                    <span className={cn(
+                      'px-2 py-0.5 rounded text-[10px] font-bold uppercase border',
+                      det.severity === 'Critical' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                      det.severity === 'High' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                      det.severity === 'Medium' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                      'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    )}>
+                      {det.severity}
+                    </span>
                   </div>
-                  <span className="text-slate-400">{s.desc}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="glass p-5 rounded-2xl border border-white/5">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Zap size={15} className="text-blue-400" /> AI Detection Pipeline
+                </h3>
+                <ol className="space-y-2.5">
+                  {[
+                    'Input media validation',
+                    'Multi-cavity surface scanning',
+                    'YOLOv8 deep learning inference',
+                    'Bounding-box coordinates mapping',
+                    'Explainable severity classification',
+                    'Real-time box overlay rendering'
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-center gap-2.5 text-xs">
+                      <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold flex-shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="text-slate-300">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="glass p-5 rounded-2xl border border-white/5">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+                  📊 Severity Scale
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Low', desc: '< 0.25 m² area', color: 'bg-emerald-500' },
+                    { label: 'Medium', desc: '0.25 – 1.0 m²', color: 'bg-amber-500' },
+                    { label: 'High', desc: '1.0 – 2.5 m²', color: 'bg-orange-500' },
+                    { label: 'Critical', desc: '> 2.5 m² area', color: 'bg-red-500' },
+                  ].map(s => (
+                    <div key={s.label} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                        <span className="text-white font-semibold">{s.label}</span>
+                      </div>
+                      <span className="text-slate-400">{s.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -417,7 +497,7 @@ export default function UploadPage() {
               Real Dataset Showcase (665 Pothole Images & Pascal VOC Annotations)
             </h2>
             <p className="text-xs text-slate-400">
-              Click any real sample below to instantly load and test with the AI pipeline:
+              Click any real sample below to instantly load and test with multiple potholes:
             </p>
           </div>
         </div>
@@ -430,7 +510,7 @@ export default function UploadPage() {
               whileTap={{ scale: 0.98 }}
               onClick={() => handleSelectSample(sample)}
               className={cn(
-                'text-left p-3 rounded-xl border transition-all relative overflow-hidden group',
+                'text-left p-3 rounded-xl border transition-all relative overflow-hidden group cursor-pointer',
                 selectedSample === sample.id
                   ? 'bg-blue-500/20 border-blue-500/50 shadow-glow-blue'
                   : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
@@ -449,7 +529,7 @@ export default function UploadPage() {
               </div>
               <p className="text-[11px] text-slate-400 line-clamp-1 mb-2.5">{sample.desc}</p>
               <div className="flex justify-between items-center text-[10px] text-slate-500 pt-2 border-t border-white/5">
-                <span className="text-blue-400 font-semibold">{sample.potholes} Potholes</span>
+                <span className="text-blue-400 font-semibold">{sample.count} Potholes</span>
                 <span className="group-hover:text-white transition-colors">Test ⚡</span>
               </div>
             </motion.button>

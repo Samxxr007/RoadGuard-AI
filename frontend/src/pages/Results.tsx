@@ -190,13 +190,13 @@ export default function Results() {
             </div>
             
             {/* Visual bounding boxes overlay */}
-            <div className="relative bg-black/80 aspect-video flex items-center justify-center overflow-hidden">
+            <div className="relative bg-black/95 flex items-center justify-center p-2 overflow-hidden min-h-[280px]">
               {result.preview ? (
-                <div className="relative w-full h-full flex items-center justify-center">
+                <div className="relative inline-block max-w-full max-h-[480px]">
                   <img
                     src={result.preview}
                     alt="Annotated Pothole Output"
-                    className="w-full h-full object-contain"
+                    className="max-w-full max-h-[480px] w-auto h-auto object-contain block rounded"
                   />
 
                   {/* Bounding Boxes */}
@@ -206,7 +206,7 @@ export default function Results() {
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: idx * 0.08 }}
-                      className="absolute border-2 border-blue-500 bg-blue-500/15 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                      className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.6)]"
                       style={{
                         left: `${d.bbox.x}%`,
                         top: `${d.bbox.y}%`,

@@ -244,13 +244,13 @@ export default function UploadPage() {
               className="glass rounded-2xl overflow-hidden border border-white/10"
             >
               {/* Preview with Real Bounding Boxes Overlaid */}
-              <div className="relative bg-black/80 aspect-video flex items-center justify-center overflow-hidden">
+              <div className="relative bg-black/95 flex items-center justify-center p-2 overflow-hidden min-h-[280px]">
                 {mode === 'image' ? (
-                  <div className="relative w-full h-full flex items-center justify-center">
+                  <div className="relative inline-block max-w-full max-h-[480px]">
                     <img
                       src={state.preview!}
                       alt="Uploaded Road Preview"
-                      className="w-full h-full object-contain"
+                      className="max-w-full max-h-[480px] w-auto h-auto object-contain block rounded"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="%231e293b" width="400" height="300"/><text fill="%2394a3b8" x="50%" y="50%" text-anchor="middle" font-family="sans-serif" font-size="16">Road Inspection Preview</text></svg>';
                       }}
@@ -263,7 +263,7 @@ export default function UploadPage() {
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: idx * 0.08, duration: 0.2 }}
-                        className="absolute border-2 border-blue-500 bg-blue-500/15 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.5)] group"
+                        className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.6)] group"
                         style={{
                           left: `${det.bbox.x}%`,
                           top: `${det.bbox.y}%`,
@@ -273,13 +273,13 @@ export default function UploadPage() {
                       >
                         {/* Label Badge above box */}
                         <div className="absolute -top-5 left-0 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 whitespace-nowrap rounded shadow-md flex items-center gap-1">
-                          <span>Pothole {(det.confidence).toFixed(2)}</span>
+                          <span>{det.label}</span>
                         </div>
                       </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <video src={state.preview!} className="max-h-full max-w-full" controls />
+                  <video src={state.preview!} className="max-h-[480px] max-w-full" controls />
                 )}
 
                 {/* Top Controls */}

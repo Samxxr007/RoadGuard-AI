@@ -40,7 +40,7 @@ class PotholeDetector:
     """Wraps YOLOv8 for pothole / road-damage detection."""
 
     def __init__(self, model_path: str = "models/pothole_yolov8.pt",
-                 confidence: float = 0.65):
+                 confidence: float = 0.30):
         self.confidence = confidence
         self.model_loaded = False
         self.model_path = model_path

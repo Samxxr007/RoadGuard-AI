@@ -105,21 +105,69 @@ export default function UploadPage() {
 
     // Upload animation progress
     for (let i = 0; i <= 60; i += 20) {
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 80));
       setState(s => ({ ...s, progress: i }));
     }
 
     setState(s => ({ ...s, status: 'processing', progress: 75 }));
 
-    // Run pothole detection algorithm
     let detectedPotholes: DetectedPothole[] = [];
-    try {
-      detectedPotholes = await detectPotholesInImage(state.preview);
-    } catch {
-      detectedPotholes = [];
+
+    // 1. Try real Backend YOLOv8 Neural Network API
+    if (state.file && state.file.size > 0 && !state.isDatasetSample) {
+      try {
+        const formData = new FormData();
+        formData.append('file', state.file);
+        const res = await fetch('/api/v1/uploads/image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const apiDets = data.result?.detections || [];
+          if (apiDets.length > 0) {
+            // Get natural image dimensions to calculate percentages
+            const img = new Image();
+            img.src = state.preview;
+            await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+            const iw = img.naturalWidth || 640;
+            const ih = img.naturalHeight || 480;
+
+            detectedPotholes = apiDets.map((d: any, idx: number) => {
+              const bbox = d.bounding_box || {};
+              const conf = d.confidence || 0.88;
+              return {
+                id: `pothole-${idx + 1}`,
+                label: `Pothole ${conf.toFixed(2)}`,
+                confidence: conf,
+                severity: d.severity || 'High',
+                bbox: {
+                  x: Math.round(((bbox.x || 0) / iw) * 1000) / 10,
+                  y: Math.round(((bbox.y || 0) / ih) * 1000) / 10,
+                  width: Math.round(((bbox.width || 80) / iw) * 1000) / 10,
+                  height: Math.round(((bbox.height || 60) / ih) * 1000) / 10,
+                },
+                areaM2: d.area_m2 || 1.2,
+              };
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Backend YOLO API not reachable, using on-device CV engine:', e);
+      }
     }
 
-    const processingDelay = mode === 'video' ? 3000 : 1000;
+    // 2. If no server detections or sample selected, use precise on-device detector
+    if (detectedPotholes.length === 0) {
+      try {
+        detectedPotholes = await detectPotholesInImage(state.preview);
+      } catch {
+        detectedPotholes = [];
+      }
+    }
+
+    const processingDelay = mode === 'video' ? 2500 : 600;
     await new Promise(r => setTimeout(r, processingDelay));
 
     const resultId = selectedSample || `det-${Date.now()}`;

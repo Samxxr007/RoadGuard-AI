@@ -1,0 +1,181 @@
+version: "3.9"
+
+# ============================================================
+# RoadGuard AI — Full Stack Docker Compose
+# Run with:  docker compose up --build
+# ============================================================
+
+services:
+
+  # ─── Frontend (React + Nginx) ───────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: roadguard-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+  # ─── Backend (FastAPI) ──────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: roadguard-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://roadguard:${POSTGRES_PASSWORD:-roadguard123}@postgres:5432/roadguard
+      AI_SERVICE_URL: http://ai-service:8001
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-supersecret-change-in-production}
+      ENVIRONMENT: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - roadguard-net
+    volumes:
+      - backend-uploads:/app/uploads
+    restart: unless-stopped
+
+  # ─── AI Detection Service (YOLOv8) ──────────────────────────
+  ai-service:
+    build: ./ai-service
+    container_name: roadguard-ai
+    ports:
+      - "8001:8001"
+    environment:
+      MODEL_PATH: /models/pothole_yolov8.pt
+      CONFIDENCE_THRESHOLD: "0.65"
+      FRAME_INTERVAL: "5"
+    volumes:
+      - ./ai-service/models:/models:ro   # mount your model weights here
+      - ai-outputs:/app/tmp/outputs
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+  # ─── PostgreSQL ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: roadguard-postgres
+    environment:
+      POSTGRES_DB: roadguard
+      POSTGRES_USER: roadguard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roadguard123}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - roadguard-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roadguard -d roadguard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Redis ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: roadguard-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - roadguard-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Prometheus ─────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: roadguard-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+  # ─── Grafana ────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: roadguard-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+  # ─── Elasticsearch ──────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: roadguard-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+  # ─── Logstash ───────────────────────────────────────────────
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    container_name: roadguard-logstash
+    volumes:
+      - ./monitoring/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+  # ─── Kibana ─────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: roadguard-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - roadguard-net
+    restart: unless-stopped
+
+# ─── Networks & Volumes ────────────────────────────────────────
+networks:
+  roadguard-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  grafana-data:
+  es-data:
+  backend-uploads:
+  ai-outputs:

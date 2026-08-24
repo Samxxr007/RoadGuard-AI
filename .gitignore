@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# AI Service temporary files & runs
+ai-service/tmp/
+ai-service/runs/
+ai-service/yolo_dataset/
+*.pt.cache
+
+# Builds & Dist
+dist/
+build/
+.next/
+out/
+
+# Environment & Logs
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+
+# Database & Storage
+*.db
+*.sqlite3
+postgres-data/
+grafana-data/
+es-data/
+
+# OS Files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,180 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roadguard-ai
+  namespace: roadguard
+  labels:
+    app: roadguard-ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: roadguard-ai
+  template:
+    metadata:
+      labels:
+        app: roadguard-ai
+    spec:
+      containers:
+        - name: ai-service
+          image: ghcr.io/samxxr007/roadguard-ai:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: roadguard-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roadguard-ai
+  namespace: roadguard
+spec:
+  ports:
+    - port: 8001
+      targetPort: 8001
+  selector:
+    app: roadguard-ai
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roadguard-backend
+  namespace: roadguard
+  labels:
+    app: roadguard-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: roadguard-backend
+  template:
+    metadata:
+      labels:
+        app: roadguard-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/samxxr007/roadguard-backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://roadguard:$(POSTGRES_PASSWORD)@postgres:5432/roadguard"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: roadguard-secrets
+                  key: POSTGRES_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: roadguard-secrets
+                  key: JWT_SECRET
+          envFrom:
+            - configMapRef:
+                name: roadguard-config
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roadguard-backend
+  namespace: roadguard
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: roadguard-backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roadguard-frontend
+  namespace: roadguard
+  labels:
+    app: roadguard-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: roadguard-frontend
+  template:
+    metadata:
+      labels:
+        app: roadguard-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/samxxr007/roadguard-frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roadguard-frontend
+  namespace: roadguard
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: roadguard-frontend

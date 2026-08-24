@@ -13,6 +13,9 @@ import ReportsPage from './pages/Reports';
 import ResearchPage from './pages/Research';
 import CitizensPage from './pages/Citizens';
 import SettingsPage from './pages/Settings';
+import UploadPage from './pages/Upload';
+import ResultsPage from './pages/Results';
+import SustainabilityPage from './pages/Sustainability';
 
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -50,6 +53,9 @@ export default function App() {
         <Route path="research" element={<ResearchPage />} />
         <Route path="citizens" element={<CitizensPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="upload" element={<UploadPage />} />
+        <Route path="results/:id" element={<ResultsPage />} />
+        <Route path="sustainability" element={<SustainabilityPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

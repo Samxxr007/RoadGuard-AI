@@ -3,29 +3,52 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Monitor, Map, Scan, Wrench, BarChart3,
   Camera, FileText, FlaskConical, Users, Settings,
-  ChevronLeft, ChevronRight, Shield, Road
+  ChevronLeft, ChevronRight, Shield, Upload, Image, Leaf
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useAuthStore } from '../../store/authStore';
 import { cn } from '../../utils/cn';
 
-const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
-  { path: '/monitor', label: 'Live Monitor', icon: Monitor, roles: ['admin', 'inspector'] },
-  { path: '/roads', label: 'Roads', icon: Map, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
-  { path: '/detections', label: 'Detections', icon: Scan, roles: ['admin', 'inspector', 'maintenance'] },
-  { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['admin', 'inspector', 'maintenance'] },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['admin', 'inspector', 'viewer'] },
+const NAV_SECTIONS = [
+  {
+    label: 'Detection',
+    items: [
+      { path: '/upload', label: 'Upload & Detect', icon: Upload, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
+      { path: '/detections', label: 'Detections', icon: Scan, roles: ['admin', 'inspector', 'maintenance'] },
+      { path: '/monitor', label: 'CCTV Monitor', icon: Monitor, roles: ['admin', 'inspector'] },
+    ]
+  },
+  {
+    label: 'Management',
+    items: [
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
+      { path: '/roads', label: 'Roads', icon: Map, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
+      { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['admin', 'inspector', 'maintenance'] },
+      { path: '/cameras', label: 'Cameras', icon: Camera, roles: ['admin', 'inspector'] },
+      { path: '/citizens', label: 'Citizens', icon: Users, roles: ['admin', 'inspector', 'viewer'] },
+    ]
+  },
+  {
+    label: 'Insights',
+    items: [
+      { path: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['admin', 'inspector', 'viewer'] },
+      { path: '/research', label: 'Research', icon: FlaskConical, roles: ['admin', 'inspector', 'viewer'] },
+      { path: '/sustainability', label: 'Sustainability', icon: Leaf, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
+      { path: '/reports', label: 'Reports', icon: FileText, roles: ['admin', 'inspector'] },
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'inspector', 'maintenance', 'viewer'] },
+    ]
+  },
 ];
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useAppStore();
   const user = useAuthStore(s => s.user);
   const location = useLocation();
-
-  const visibleItems = NAV_ITEMS.filter(
-    item => user && item.roles.includes(user.role)
-  );
 
   return (
     <motion.aside
@@ -61,53 +84,64 @@ export default function Sidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-0.5">
-        {!sidebarCollapsed && (
-          <p className="px-2 pt-1 pb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-            Navigation
-          </p>
-        )}
-        {visibleItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
+        {NAV_SECTIONS.map((section) => {
+          const visibleItems = section.items.filter(item => user && item.roles.includes(user.role));
+          if (visibleItems.length === 0) return null;
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={cn(
-                'nav-item group',
-                isActive && 'active',
-                sidebarCollapsed && 'justify-center px-0'
+            <div key={section.label} className="mb-1">
+              {!sidebarCollapsed && (
+                <p className="px-2 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                  {section.label}
+                </p>
               )}
-            >
-              <Icon
-                className={cn(
-                  'w-4.5 h-4.5 flex-shrink-0 transition-colors',
-                  isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'
-                )}
-                size={18}
-              />
-              <AnimatePresence>
-                {!sidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden whitespace-nowrap"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              {!sidebarCollapsed && isActive && (
-                <motion.div
-                  layoutId="activeIndicator"
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400"
-                />
-              )}
-            </NavLink>
+              {sidebarCollapsed && <div className="my-1 mx-2 border-t border-white/5" />}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname.startsWith(item.path);
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      title={sidebarCollapsed ? item.label : undefined}
+                      className={cn(
+                        'nav-item group',
+                        isActive && 'active',
+                        sidebarCollapsed && 'justify-center px-0'
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'flex-shrink-0 transition-colors',
+                          isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'
+                        )}
+                        size={17}
+                      />
+                      <AnimatePresence>
+                        {!sidebarCollapsed && (
+                          <motion.span
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: 'auto' }}
+                            exit={{ opacity: 0, width: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden whitespace-nowrap"
+                          >
+                            {item.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      {!sidebarCollapsed && isActive && (
+                        <motion.div
+                          layoutId="activeIndicator"
+                          className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400"
+                        />
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>

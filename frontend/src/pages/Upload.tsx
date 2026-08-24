@@ -304,14 +304,14 @@ export default function UploadPage() {
                       }}
                     />
 
-                    {/* Bounding Boxes Rendered Directly Over Image */}
+                    {/* Bounding Boxes Rendered Directly Over Image (Smart AI Pothole Detector) */}
                     {state.status === 'done' && showBoxes && state.detections.map((det, idx) => (
                       <motion.div
                         key={det.id}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: idx * 0.08, duration: 0.2 }}
-                        className="absolute border-2 border-blue-500 bg-blue-500/20 pointer-events-auto transition-all shadow-[0_0_12px_rgba(59,130,246,0.6)] group"
+                        transition={{ delay: idx * 0.06, duration: 0.2 }}
+                        className="absolute border-2 border-emerald-400 bg-emerald-500/20 pointer-events-auto transition-all shadow-[0_0_14px_rgba(52,211,153,0.7)] group"
                         style={{
                           left: `${det.bbox.x}%`,
                           top: `${det.bbox.y}%`,
@@ -320,8 +320,8 @@ export default function UploadPage() {
                         }}
                       >
                         {/* Label Badge above box */}
-                        <div className="absolute -top-5 left-0 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 whitespace-nowrap rounded shadow-md flex items-center gap-1">
-                          <span>{det.label}</span>
+                        <div className="absolute -top-5 left-0 bg-emerald-600 text-white font-mono text-[10px] font-bold px-1.5 py-0.5 whitespace-nowrap rounded shadow-md flex items-center gap-1">
+                          <span>{det.label.toLowerCase()}</span>
                         </div>
                       </motion.div>
                     ))}

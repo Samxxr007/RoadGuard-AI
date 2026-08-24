@@ -33,6 +33,9 @@ OUTPUT_DIR = Path("tmp/outputs")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+from fastapi.staticfiles import StaticFiles
+app.mount("/outputs", StaticFiles(directory="tmp/outputs"), name="outputs")
+
 # Load detector once at startup
 MODEL_PATH = os.getenv("MODEL_PATH", "models/pothole_yolov8.pt")
 CONFIDENCE = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))

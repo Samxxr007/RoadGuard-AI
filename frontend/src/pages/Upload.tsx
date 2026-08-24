@@ -112,24 +112,67 @@ export default function UploadPage() {
     setState(s => ({ ...s, status: 'processing', progress: 75 }));
 
     let detectedPotholes: DetectedPothole[] = [];
+    let activePreview = state.preview;
 
-    // Run Jordan Bennett Smart AI Pothole Detection
-    try {
-      detectedPotholes = await detectPotholesInImage(state.preview);
-    } catch {
-      detectedPotholes = [];
-    }
-
-    // Also sync to backend in background if available
+    // 1. Run real Backend Deep Learning YOLOv8 Neural Network API
     if (state.file && state.file.size > 0 && !state.isDatasetSample) {
       try {
         const formData = new FormData();
         formData.append('file', state.file);
-        fetch('/api/v1/uploads/image', { method: 'POST', body: formData }).catch(() => {});
-      } catch {}
+        const res = await fetch('http://localhost:8000/api/v1/uploads/image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const apiDets = data.result?.detections || [];
+          if (apiDets.length > 0) {
+            if (data.result?.annotated_image_url) {
+              const urlStem = data.result.annotated_image_url.replace('/outputs/', '');
+              activePreview = `http://localhost:8000/api/v1/uploads/outputs/${urlStem}`;
+            }
+
+            const img = new Image();
+            img.src = state.preview!;
+            await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+            const iw = img.naturalWidth || 640;
+            const ih = img.naturalHeight || 480;
+
+            detectedPotholes = apiDets.map((d: any, idx: number) => {
+              const bbox = d.bounding_box || {};
+              const conf = d.confidence || 0.88;
+              return {
+                id: `pothole-${idx + 1}`,
+                label: `Pothole ${conf.toFixed(2)}`,
+                confidence: conf,
+                severity: d.severity || 'High',
+                bbox: {
+                  x: Math.round(((bbox.x || 0) / iw) * 1000) / 10,
+                  y: Math.round(((bbox.y || 0) / ih) * 1000) / 10,
+                  width: Math.round(((bbox.width || 80) / iw) * 1000) / 10,
+                  height: Math.round(((bbox.height || 60) / ih) * 1000) / 10,
+                },
+                areaM2: d.area_m2 || 1.2,
+              };
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Real AI Service error, using client detector:', e);
+      }
     }
 
-    const processingDelay = mode === 'video' ? 2500 : 600;
+    // 2. Fallback if needed
+    if (detectedPotholes.length === 0) {
+      try {
+        detectedPotholes = await detectPotholesInImage(state.preview!);
+      } catch {
+        detectedPotholes = [];
+      }
+    }
+
+    const processingDelay = mode === 'video' ? 2500 : 500;
     await new Promise(r => setTimeout(r, processingDelay));
 
     const resultId = selectedSample || `det-${Date.now()}`;
@@ -138,7 +181,7 @@ export default function UploadPage() {
     sessionStorage.setItem(`detections_${resultId}`, JSON.stringify({
       id: resultId,
       fileName: state.file?.name || 'pothole_inspection.jpg',
-      preview: state.preview,
+      preview: activePreview,
       detections: detectedPotholes,
       mediaType: mode,
     }));
@@ -147,6 +190,7 @@ export default function UploadPage() {
       ...s,
       status: 'done',
       progress: 100,
+      preview: activePreview,
       resultId: resultId,
       detections: detectedPotholes,
     }));

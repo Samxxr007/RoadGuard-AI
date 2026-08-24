@@ -69,6 +69,23 @@ async def get_sample_image(filename: str):
     raise HTTPException(status_code=404, detail="Sample image not found")
 
 
+@router.get("/outputs/{filename}")
+async def get_output_file(filename: str):
+    """Serve annotated YOLO image from AI outputs directory."""
+    out_file = AI_SERVICE_DIR / "tmp" / "outputs" / filename
+    if out_file.exists():
+        return FileResponse(str(out_file))
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(f"{AI_SERVICE_URL}/outputs/{filename}")
+            if res.status_code == 200:
+                return res.content
+    except Exception:
+        pass
+    raise HTTPException(status_code=404, detail="Output file not found")
+
+
 @router.post("/sample/{filename}")
 async def process_sample(filename: str):
     """Run real detection on dataset sample image."""

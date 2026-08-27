@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import {
   TrendingUp, AlertTriangle, Download, CheckCircle,
-  Speedometer as SpeedIcon, Activity, Zap
+  Gauge as SpeedIcon, Activity, Zap
 } from 'lucide-react';
 
 export default function Analytics() {

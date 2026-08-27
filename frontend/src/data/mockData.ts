@@ -1,7 +1,8 @@
 import type {
   Camera, Road, Detection, MaintenanceTicket, CitizenReport,
   DashboardStats, MonthlyDamageTrend, DamageTypeDistribution,
-  DistrictComparison, ModelMetrics, Notification, User
+  DistrictComparison, ModelMetrics, Notification, User,
+  DamageSeverity, TicketStatus, TicketPriority, CitizenReportStatus
 } from '../types';
 import { DAMAGE_TYPES, DISTRICTS, REPAIR_COST_PER_SQM, SEVERITY_MULTIPLIER, MOCK_CITY_CENTER } from '../utils/constants';
 import { getHealthCategory } from '../utils/format';
@@ -16,7 +17,7 @@ const seededRandom = () => {
 const randomBetween = (min: number, max: number) =>
   Math.floor(seededRandom() * (max - min + 1)) + min;
 
-const randomFrom = <T>(arr: T[]): T => arr[Math.floor(seededRandom() * arr.length)];
+const randomFrom = <T>(arr: readonly T[] | T[]): T => arr[Math.floor(seededRandom() * arr.length)];
 
 const randomOffset = (base: number, range: number) =>
   base + (seededRandom() - 0.5) * range;
@@ -162,7 +163,7 @@ export const MOCK_ROADS: Road[] = ROAD_NAMES.map((name, i) => {
 // Detections
 // ============================================================
 
-const SEVERITIES = ['minor', 'moderate', 'severe', 'critical'] as const;
+const SEVERITIES: DamageSeverity[] = ['minor', 'moderate', 'severe', 'critical'];
 
 export const MOCK_DETECTIONS: Detection[] = Array.from({ length: 120 }, (_, i) => {
   const damageType = randomFrom(DAMAGE_TYPES);
@@ -213,12 +214,12 @@ export const MOCK_DETECTIONS: Detection[] = Array.from({ length: 120 }, (_, i) =
 
 const TEAM_NAMES = ['Alpha Team', 'Bravo Team', 'Charlie Team', 'Delta Team', 'Echo Team'];
 const WORKER_NAMES = ['Raj Mehta', 'Priya Sharma', 'Amit Patel', 'Sunita Rao', 'Kiran Nair', 'Deepak Gupta'];
+const TICKET_STATUSES: TicketStatus[] = ['open', 'assigned', 'in_progress', 'completed', 'closed'];
+const TICKET_PRIORITIES: TicketPriority[] = ['low', 'medium', 'high', 'critical'];
 
 export const MOCK_TICKETS: MaintenanceTicket[] = Array.from({ length: 40 }, (_, i) => {
   const detection = MOCK_DETECTIONS[i];
-  const statuses = ['open', 'assigned', 'in_progress', 'completed', 'closed'] as const;
-  const priorities = ['low', 'medium', 'high', 'critical'] as const;
-  const status = randomFrom(statuses);
+  const status = randomFrom(TICKET_STATUSES);
   const priority = detection.severity === 'critical' ? 'critical' :
     detection.severity === 'severe' ? 'high' :
     detection.severity === 'moderate' ? 'medium' : 'low';
@@ -231,7 +232,7 @@ export const MOCK_TICKETS: MaintenanceTicket[] = Array.from({ length: 40 }, (_, 
     district: detection.district,
     title: `${detection.severity.charAt(0).toUpperCase() + detection.severity.slice(1)} ${detection.damageType.replace(/_/g, ' ')} repair`,
     description: `Detected ${detection.damageType.replace(/_/g, ' ')} with ${(detection.confidence * 100).toFixed(1)}% confidence. Estimated area: ${detection.areaM2.toFixed(2)} m². Priority repair required.`,
-    priority: priority as typeof priorities[number],
+    priority: priority as TicketPriority,
     status,
     damageType: detection.damageType,
     severity: detection.severity,
@@ -372,7 +373,7 @@ export const MOCK_CITIZEN_REPORTS: CitizenReport[] = Array.from({ length: 20 }, 
   address: randomFrom(CAMERA_LOCATIONS).name,
   damageType: randomFrom(DAMAGE_TYPES),
   severity: randomFrom(SEVERITIES),
-  status: randomFrom(['submitted', 'reviewed', 'merged', 'rejected'] as const),
+  status: randomFrom(['submitted', 'reviewed', 'merged', 'rejected'] as CitizenReportStatus[]),
   submittedAt: `2026-0${randomBetween(5, 7)}-${randomBetween(1, 30)}T${randomBetween(8, 20)}:00:00Z`,
   mergedDetectionId: i % 3 === 0 ? `det${String(i + 1).padStart(4, '0')}` : undefined,
   aiVerified: i % 4 !== 0,
@@ -396,7 +397,7 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
 // Live Detection Stream Simulation
 // ============================================================
 
-export const generateLiveDetection = () => {
+export const generateLiveDetection = (): Detection => {
   const camera = randomFrom(MOCK_CAMERAS);
   const damageType = randomFrom(DAMAGE_TYPES);
   const severity = randomFrom(SEVERITIES);

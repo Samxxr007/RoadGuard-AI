@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Route, Activity, BrokenImage as BrokenIcon,
-  Wallet, Layers, Plus, Minus, MyLocation,
-  Sensors, OpenInNew, Upload, CheckCircle2, ArrowRight
+  Route, Activity,
+  Wallet, Layers, Plus, Minus, Locate,
+  Radio, ExternalLink, Upload, CheckCircle2, ArrowRight
 } from 'lucide-react';
 import { MOCK_DASHBOARD_STATS } from '../data/mockData';
 
@@ -163,7 +163,7 @@ export default function Dashboard() {
                 <Minus size={14} />
               </button>
               <button className="w-8 h-8 glass rounded-lg flex items-center justify-center text-blue-400 mt-1 hover:scale-105 transition-transform">
-                <MyLocation size={14} />
+                <Locate size={14} />
               </button>
             </div>
 

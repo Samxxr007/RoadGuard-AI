@@ -493,27 +493,46 @@ export default function UploadPage() {
             </div>
           ) : (
             <>
-              <div className="glass p-5 rounded-2xl border border-white/5">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Zap size={15} className="text-blue-400" /> AI Detection Pipeline
-                </h3>
-                <ol className="space-y-2.5">
-                  {[
-                    'Input media validation',
-                    'Multi-cavity surface scanning',
-                    'YOLOv8 deep learning inference',
-                    'Bounding-box coordinates mapping',
-                    'Explainable severity classification',
-                    'Real-time box overlay rendering'
-                  ].map((step, i) => (
-                    <li key={i} className="flex items-center gap-2.5 text-xs">
-                      <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-[10px] font-bold flex-shrink-0">
-                        {i + 1}
-                      </span>
-                      <span className="text-slate-300">{step}</span>
-                    </li>
-                  ))}
-                </ol>
+              <div className="glass p-5 rounded-2xl border border-white/5 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                    <Zap size={14} className="text-blue-400" /> Pipeline Status
+                  </h3>
+                  <span className="font-mono text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                    YOLOv8-TRT READY
+                  </span>
+                </div>
+
+                {/* 6-Node Horizontal Pipeline */}
+                <div className="relative pt-2 pb-1">
+                  <div className="absolute top-[14px] left-2 right-2 h-[2px] bg-slate-800" />
+                  <div className="flex justify-between relative z-10 font-mono text-[9px]">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-bg-primary" />
+                      <span className="text-slate-300">Valid</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-bg-primary" />
+                      <span className="text-slate-300">Resize</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-bg-primary animate-pulse" />
+                      <span className="text-blue-400 font-bold">Infer</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-bg-primary" />
+                      <span className="text-slate-300">Map</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-3.5 h-3.5 rounded-full bg-slate-700 border-2 border-bg-primary" />
+                      <span className="text-slate-500">Sever</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-3.5 h-3.5 rounded-full bg-slate-700 border-2 border-bg-primary" />
+                      <span className="text-slate-500">Out</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="glass p-5 rounded-2xl border border-white/5">
